@@ -1,22 +1,19 @@
 package com.example.jpushdemo;
 
-import android.os.SystemClock;
-import com.example.jpushdemo.db.JpushDao;
-import org.json.JSONException;
-import org.json.JSONObject;
-
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.os.Bundle;
 import android.util.Log;
 import cn.jpush.android.api.JPushInterface;
+import com.example.jpushdemo.db.MU;
+import com.example.jpushdemo.db.PushDao;
+import org.json.JSONException;
+import org.json.JSONObject;
 
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.Date;
-import java.util.HashMap;
-import java.util.Map;
 
 /**
  * 自定义接收器
@@ -27,32 +24,32 @@ import java.util.Map;
  */
 public class MyReceiver extends BroadcastReceiver {
     private static final String TAG = "JPush";
-    private JpushDao jpushDao;
+    private PushDao pushDao;
 
     private static DateFormat DATE_FORMAT = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
 
     @Override
     public void onReceive(Context context, Intent intent) {
-        jpushDao = JpushDao.getInstance(context);
         Bundle bundle = intent.getExtras();
         Log.d(TAG, "[MyReceiver] onReceive - " + intent.getAction() + ", extras: " + printBundle(bundle));
-        long now = System.currentTimeMillis();
 
         if (JPushInterface.ACTION_REGISTRATION_ID.equals(intent.getAction())) {
             String regId = bundle.getString(JPushInterface.EXTRA_REGISTRATION_ID);
-            Log.d(TAG, "[MyReceiver] 接收Registration Id : " + regId);
+            Log.e(TAG, "[MyReceiver] 接收Registration Id : " + regId);
             //send the Registration Id to your server...
 
         } else if (JPushInterface.ACTION_MESSAGE_RECEIVED.equals(intent.getAction())) {
-            Log.d(TAG, "[MyReceiver] 接收到推送下来的自定义消息: " + bundle.getString(JPushInterface.EXTRA_MESSAGE));
-            String meg = bundle.getString("cn.jpush.android.MESSAGE");
-            String msgId = bundle.getString("cn.jpush.android.MSG_ID");
-            Map<String, String> map = new HashMap<>();
-            map.put(JpushDao.C_RECTIME, String.valueOf(now));
-            map.put(JpushDao.C_RECTIME2, getStrTime(now));
-            map.put(JpushDao.C_MSG, meg);
-            map.put(JpushDao.C_MSG_ID, msgId);
-            jpushDao.insert(map);
+            Log.e(TAG, "[MyReceiver] 接收到推送下来的自定义消息: " + bundle.getString(JPushInterface.EXTRA_MESSAGE));
+            String message = bundle.getString("cn.jpush.android.MESSAGE");
+//            String msgId = bundle.getString("cn.jpush.android.MSG_ID");
+
+// --------------------------------------------------------------------------------------
+            pushDao = PushDao.getInstance(context);
+            Date now = new Date();
+            String recTime = String.valueOf(now.getTime());
+            String recTime2 = MU.getStrTime(now);
+            pushDao.insert(message, recTime, recTime2, message.substring(0, message.indexOf("_")));
+// --------------------------------------------------------------------------------------
 
             processCustomMessage(context, bundle);
 
