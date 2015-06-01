@@ -6,14 +6,27 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.View;
 import android.view.View.OnClickListener;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.TextView;
+import android.widget.Toast;
 import cn.jpush.android.api.InstrumentedActivity;
 import cn.jpush.android.api.JPushInterface;
- import  com.joyi.mypush.R;
+import com.example.jpushdemo.db.PushDao;
+import com.google.gson.Gson;
+import com.joyi.mypush.R;
+import com.loopj.android.http.AsyncHttpClient;
+import com.loopj.android.http.JsonHttpResponseHandler;
+import com.loopj.android.http.RequestParams;
+import org.apache.http.Header;
+import org.json.JSONArray;
+import org.json.JSONObject;
+
+import java.util.List;
+import java.util.Map;
 
 
 public class MainActivity extends InstrumentedActivity implements OnClickListener{
@@ -27,9 +40,13 @@ public class MainActivity extends InstrumentedActivity implements OnClickListene
     private static int count;
 	
 	public static boolean isForeground = false;
+	public PushDao pushDao;
+
+
 	@Override
 	public void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
+		pushDao = PushDao.getInstance(this);
 		setContentView(R.layout.main);
 		initView();   
 		registerMessageReceiver();  // used for receive msg
@@ -156,4 +173,97 @@ public class MainActivity extends InstrumentedActivity implements OnClickListene
          }
 	}
 
+
+	static Gson gson = new Gson();
+	/**
+	 * 上传
+	 * @param view
+	 */
+	public void upload(View view) {
+
+		List<Map<String, Object>> all = pushDao.getAll();
+
+		if (all.size() == 0) {
+			Toast.makeText(this, "无数据", Toast.LENGTH_SHORT).show();
+			return;
+		}
+
+		// 提示框
+		final android.app.AlertDialog.Builder builder = new android.app.AlertDialog.Builder(this);
+		builder.setTitle("Upload");
+		builder.setMessage("上传失败");
+		builder.setCancelable(false);
+		builder.setNegativeButton("确认", null);
+
+
+		// 按钮文字
+		final Button btn = (Button) view;
+		btn.setText("uploading ...");
+		btn.setClickable(false);
+
+
+		RequestParams params = new RequestParams();
+		params.put("act", "upload_push_msg");
+		params.put("data", gson.toJson(all));
+		Log.e("jsondata", gson.toJson(all));
+
+		new AsyncHttpClient().post("http://cms.orenda.com.cn:29055/upload_data", params, new JsonHttpResponseHandler() {
+			@Override
+			public void onSuccess(int statusCode, Header[] headers, JSONObject response) {
+				super.onSuccess(statusCode, headers, response);
+				String hasErrors = getString(response, "hasErrors");
+				if ("false".equals(hasErrors)) {
+					builder.setMessage("上传成功");
+					pushDao.clear();
+				} else {
+					String msg = getString(response, "message");
+					Log.e("upload.hasError=true", msg);
+					builder.setMessage(msg);
+				}
+
+				btn.setText("UPLOAD");
+				btn.setClickable(true);
+				builder.show();
+			}
+
+			@Override
+			public void onFailure(int statusCode, Header[] headers, String responseString, Throwable throwable) {
+				super.onFailure(statusCode, headers, responseString, throwable);
+				Log.e("onFailure1", String.valueOf(responseString) + "|" + throwable);
+				builder.show();
+				btn.setText("UPLOAD");
+				btn.setClickable(true);
+			}
+
+
+			@Override
+			public void onFailure(int statusCode, Header[] headers, Throwable throwable, JSONArray errorResponse) {
+				super.onFailure(statusCode, headers, throwable, errorResponse);
+				Log.e("onFailure2", String.valueOf(errorResponse) + "|" + throwable);
+				builder.show();
+				btn.setText("UPLOAD");
+				btn.setClickable(true);
+			}
+
+			@Override
+			public void onFailure(int statusCode, Header[] headers, Throwable throwable, JSONObject errorResponse) {
+				super.onFailure(statusCode, headers, throwable, errorResponse);
+				Log.e("onFailure3", String.valueOf(errorResponse) + "|" + throwable);
+				builder.show();
+				btn.setText("UPLOAD");
+				btn.setClickable(true);
+			}
+		});
+	}
+
+	public String getString(JSONObject json, String key) {
+		String str = null;
+		if (json == null) {
+			return str;
+		}
+		try {
+			str = json.getString(key);
+		} catch (Exception e) { }
+		return str;
+	}
 }
